@@ -17,7 +17,11 @@ namespace UserDelegationSaS
          Console.WriteLine("User delegation Sas...");
 
          //Login with credential
-         var cred = new AzureCliCredential();
+         Environment.SetEnvironmentVariable("AZURE_CLIENT_ID", "ae0a98cb-1600-4901-9aca-0088ce249581");
+         Environment.SetEnvironmentVariable("AZURE_CLIENT_SECRET", "PHWQ7C3j~ZpqeC1uKmfY9nDacbU_bOxhVc");
+         Environment.SetEnvironmentVariable("AZURE_TENANT_ID", "4e6f57dc-a3d9-4a0c-818b-a7c1bb2b79f6");
+
+         var cred = new DefaultAzureCredential();
          var blobSvcClient = new BlobServiceClient(new Uri($"https://chyastorage.blob.core.windows.net"), cred);
 
          //Get user delegation key, make sure RBAC is assigned
