@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Net.Http.Headers;
+using System.Threading;
 using System.Threading.Tasks;
 using Azure.Identity;
 using Azure.Storage.Blobs;
@@ -12,7 +13,7 @@ namespace UserDelegationSaS
 {
    class Program
    {
-      static void Main(string[] args)
+      static async Task Main(string[] args)
       {
          Console.WriteLine("User delegation Sas...");
 
@@ -25,17 +26,26 @@ namespace UserDelegationSaS
          var blobSvcClient = new BlobServiceClient(new Uri($"https://chyastorage.blob.core.windows.net"), cred);
 
          //Get user delegation key, make sure RBAC is assigned
-         var userDelegationKey = GetUserDelegationKey(blobSvcClient);
-         userDelegationKey.Wait();
+         var userDelegationKey = await GetUserDelegationKey(blobSvcClient);
 
-         var sasBuilder = new BlobSasBuilder(BlobSasPermissions.All, userDelegationKey.Result.SignedExpiresOn);
-         var sas = sasBuilder.ToSasQueryParameters(userDelegationKey.Result, "chyastorage");
+         var sasBuilder = new BlobSasBuilder(BlobSasPermissions.Create, userDelegationKey.SignedExpiresOn)
+         {
+            BlobContainerName = "user",
+         };
+         var sas = sasBuilder.ToSasQueryParameters(userDelegationKey, "chyastorage");
 
          Console.WriteLine("User delegation SaS:");
          Console.WriteLine(sas.ToString());
 
-         var blobContainer = blobSvcClient.GetBlobContainerClient("user");
-         var blob = blobContainer.GetBlobClient("UserDelegationSaS" + DateTime.Now.DayOfYear + DateTime.Now.TimeOfDay);
+         //Use SaS to for Uri to fetch blob client
+         UriBuilder blobUri = new UriBuilder()
+         {
+            Scheme = "https",
+            Host = "chyastorage.blob.core.windows.net",
+            Path = "user/UserDelegationSaS_" + Path.GetRandomFileName(),
+            Query = sas.ToString()
+         };
+         var blob = new BlobClient(blobUri.Uri);
 
          using var stream = new MemoryStream();
          stream.Write(new byte[]{1,2,3,4,5,6,7,8,9,0});
@@ -53,7 +63,7 @@ namespace UserDelegationSaS
       {
          var userDelegationKey = await client.GetUserDelegationKeyAsync(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(1));
          Console.WriteLine("User delegation key:");
-         Console.WriteLine(userDelegationKey.Value);
+         Console.WriteLine(userDelegationKey.Value.Value);
 
          return userDelegationKey;
       }
